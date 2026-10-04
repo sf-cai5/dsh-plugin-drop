@@ -1,0 +1,55 @@
+{
+  "name": "dsh-plugin-drop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "拖放安装 DSH 插件：把解压后的插件文件夹、.zip 或 .tgz 拖到一个页面，自动完成 profile 依赖登记、链接与插件层重组（等价于 dsh plugin add）。",
+  "author": "Made by DSH (DeepSeek Harness)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sf-cai5/dsh-plugin-drop.git"
+  },
+  "homepage": "https://github.com/sf-cai5/dsh-plugin-drop#readme",
+  "bugs": {
+    "url": "https://github.com/sf-cai5/dsh-plugin-drop/issues"
+  },
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "page.html",
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "installer",
+    "drag-and-drop"
+  ],
+  "scripts": {
+    "test": "node test/stage.test.mjs && node test/host.test.mjs && node test/client.test.mjs",
+    "test:live": "node test/live.test.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "license": "MIT"
+}

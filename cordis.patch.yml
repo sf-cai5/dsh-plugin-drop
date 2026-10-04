@@ -1,0 +1,8 @@
+# Plugin Drop bundle patch.
+#
+# One insert mounts the host half; the browser half is declared by
+# package.json's `dsh.client` and binds to the row whose name is this package.
+- insert:
+    - id: plugin-drop
+      name: 'dsh-plugin-drop'
+      config: {}

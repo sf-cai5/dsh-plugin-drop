@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>插件拖放安装器 · DSH</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --line: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #99a1b3;
+    --accent: #4f7cff;
+    --accent-soft: rgba(79, 124, 255, 0.12);
+    --ok: #35c48a;
+    --warn: #e0a53c;
+    --err: #f0616d;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --panel-2: #f1f3f7;
+      --line: #dfe3 ea;
+      --line: #e2e5ec;
+      --text: #1c2027;
+      --muted: #626b7d;
+      --accent: #2f5fe0;
+      --accent-soft: rgba(47, 95, 224, 0.08);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 20px 64px;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.6 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 6px; font-weight: 650; letter-spacing: .2px; }
+  h2 { font-size: 14px; margin: 0 0 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  p.lead { margin: 0 0 20px; color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; }
+  #drop {
+    border: 2px dashed var(--line); border-radius: var(--radius);
+    padding: 40px 24px; text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s, transform .15s;
+    background: var(--panel);
+  }
+  #drop:hover { border-color: var(--accent); }
+  #drop.hot { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.005); }
+  #drop .big { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+  #drop .sub { color: var(--muted); font-size: 13px; }
+  #drop .hint { color: var(--muted); font-size: 12px; margin-top: 14px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row.wrap { flex-wrap: wrap; }
+  input[type=text] {
+    flex: 1 1 320px; min-width: 0; padding: 9px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font: inherit;
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  button {
+    padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.link { border: none; background: none; color: var(--muted); padding: 4px 6px; }
+  button.link:hover:not(:disabled) { color: var(--err); border: none; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, "Cascadia Mono", monospace; font-size: 12.5px; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; border: 1px solid var(--line); color: var(--muted); }
+  .tag.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+  .tag.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+  #log {
+    background: #0b0d11; color: #cfd6e4; border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px; max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12.5px; line-height: 1.5;
+  }
+  .banner { border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; border: 1px solid var(--line); background: var(--panel-2); }
+  .banner.ok { border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+  .banner.err { border-color: color-mix(in srgb, var(--err) 45%, var(--line)); }
+  .banner.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+  .banner .title { font-weight: 600; margin-bottom: 4px; }
+  .muted { color: var(--muted); }
+  .hidden { display: none !important; }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; font-size: 12.5px; }
+  dl.meta dt { color: var(--muted); }
+  dl.meta dd { margin: 0; word-break: break-all; }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--muted); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .bar { height: 8px; border-radius: 999px; background: var(--panel-2); overflow: hidden; margin-top: 8px; }
+  .bar > i { display: block; height: 100%; border-radius: 999px; background: var(--accent); transition: width .25s ease; }
+  .bar > i.indeterminate { width: 38%; animation: slide 1.15s ease-in-out infinite; }
+  .bar > i.ok { background: var(--ok); }
+  .bar > i.err { background: var(--err); }
+  @keyframes slide { 0% { margin-left: -40%; } 50% { margin-left: 30%; } 100% { margin-left: 100%; } }
+  .progress-head { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; }
+  .tag.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>插件拖放安装器</h1>
+  <p class="lead">把插件包拖到下面的区域，它会自动安装到当前 profile
+    <span id="profile-name" class="mono"></span>。安装走的是官方流程（<code>dsh plugin add</code>），因此与手动安装的结果完全一致。</p>
+
+  <div id="blocked" class="banner err hidden">
+    <div class="title">这个安装器无法工作</div>
+    <div id="blocked-text" class="muted"></div>
+  </div>
+
+  <div id="drop">
+    <div class="big">把插件文件夹或压缩包拖到这里</div>
+    <div class="sub">也可以点击选择</div>
+    <div class="hint">支持：解压后的插件文件夹（含 package.json）· <code>.zip</code> · <code>.tgz</code> / <code>.tar.gz</code></div>
+    <input id="picker" type="file" multiple webkitdirectory class="hidden">
+    <input id="picker-files" type="file" multiple accept=".zip,.tgz,.gz" class="hidden">
+  </div>
+
+  <div id="status" class="panel hidden"></div>
+  <div id="bar-panel" class="panel hidden">
+    <div class="progress-head"><span id="bar-label"></span><span id="bar-detail" class="muted mono"></span></div>
+    <div class="bar"><i id="bar-fill"></i></div>
+  </div>
+  <div id="progress" class="panel hidden">
+    <h2 id="progress-title">安装中</h2>
+    <div id="log"></div>
+  </div>
+
+  <div class="panel" id="manual">
+    <h2>从本地路径或包名安装</h2>
+    <p class="muted" style="margin-top:0">文件夹太大不便上传时，直接填绝对路径更快；也接受包名、Git 地址与 <code>.tgz</code>。</p>
+    <div class="row wrap">
+      <input id="spec-input" type="text" placeholder="例如 C:\Users\you\Downloads\my-plugin">
+      <button id="spec-install" class="primary">安装</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>已暂存的插件包</h2>
+    <div id="staged" class="muted">读取中…</div>
+    <p class="muted" style="font-size:12px;margin-bottom:0">暂存目录就是插件的常驻位置（路径安装记成 <code>link:</code>），安装后请不要删除。</p>
+  </div>
+
+  <div class="panel">
+    <h2>当前 profile 的插件</h2>
+    <div id="installed" class="muted">读取中…</div>
+  </div>
+
+  <div class="panel">
+    <h2>环境</h2>
+    <dl class="meta" id="env"></dl>
+  </div>
+</main>
+
+<script>
+(() => {
+  const API = '/api/plugin-drop';
+  const SKIP_DIRS = new Set(['node_modules', '.git', '__MACOSX', '.idea', '.vscode', '.cache']);
+  /** Raw bytes before base64: the host refuses a JSON body over 96 MiB. */
+  const MAX_RAW_BYTES = 64 * 1024 * 1024;
+  const $ = id => document.getElementById(id);
+  const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
+
+  let state = null;
+  let busy = false;
+  let pollTimer = null;
+
+  async function api(path, options) {
+    const response = await fetch(API + path, options);
+    const payload = await response.json().catch(() => ({ error: response.status + ' ' + response.statusText }));
+    if (!response.ok) throw new Error(payload.error || ('HTTP ' + response.status));
+    return payload;
+  }
+
+  const post = (path, body) => api(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-plugin-drop': '1' },
+    body: JSON.stringify(body),
+  });
+
+  // ── reading a drop ────────────────────────────────────────────────────────
+  async function walkEntry(entry, prefix, out) {
+    if (entry.isFile) {
+      const file = await new Promise((resolve, reject) => entry.file(resolve, reject));
+      out.push({ path: prefix + entry.name, file });
+      return;
+    }
+    if (!entry.isDirectory) return;
+    if (SKIP_DIRS.has(entry.name)) return;
+    const reader = entry.createReader();
+    for (;;) {
+      const batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+      if (batch.length === 0) return;
+      for (const child of batch) await walkEntry(child, prefix + entry.name + '/', out);
+    }
+  }
+
+  async function collect(dataTransfer) {
+    const items = Array.from(dataTransfer.items || []).filter(item => item.kind === 'file');
+    const entries = items.map(item => (item.webkitGetAsEntry ? item.webkitGetAsEntry() : null)).filter(Boolean);
+    const out = [];
+    if (entries.length > 0) for (const entry of entries) await walkEntry(entry, '', out);
+    else for (const file of Array.from(dataTransfer.files || [])) out.push({ path: file.webkitRelativePath || file.name, file });
+    return out;
+  }
+
+  function isSkipped(relative) {
+    const parts = relative.split('/');
+    return parts.some(part => SKIP_DIRS.has(part)) || ['desktop.ini', 'Thumbs.db', '.DS_Store'].includes(parts[parts.length - 1]);
+  }
+
+  function toBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let index = 0; index < bytes.length; index += chunk) binary += String.fromCharCode.apply(null, bytes.subarray(index, index + chunk));
+    return btoa(binary);
+  }
+
+  async function encode(files, onProgress) {
+    const kept = files.filter(file => !isSkipped(file.path.replace(/\\\\/g, '/')));
+    if (kept.length === 0) throw new Error('拖入的内容里没有可安装的文件');
+    const total = kept.reduce((sum, file) => sum + file.file.size, 0);
+    if (total > MAX_RAW_BYTES) {
+      throw new Error('内容约 ' + Math.round(total / 1048576) + ' MiB，超过上传上限 64 MiB。请在下面直接填文件夹的绝对路径安装（不经过上传）。');
+    }
+    const out = [];
+    let read = 0;
+    for (const file of kept) {
+      out.push({ path: file.path, data: toBase64(await file.file.arrayBuffer()) });
+      read += file.file.size;
+      if (onProgress) onProgress(read, total);
+    }
+    return out;
+  }
+
+  /** Turn a host or network failure into something the reader can act on. */
+  function explainError(message) {
+    const text = String(message || '');
+    if (/no longer available/.test(text)) return '暂存凭据已失效（宿主重启，或那一次响应没送达）。插件包已存在磁盘上：请在「已暂存的插件包」里点「安装」。';
+    if (/could not work out which profile/.test(text)) return '宿主读不到当前 profile。请重启 DSH。';
+    if (/could not find the DSH plugin adapter/.test(text)) return '找不到官方安装适配器（lib/plugin-cli.js），无法执行安装。';
+    if (/larger than the/.test(text)) return '上传超过上限，请改用绝对路径安装。';
+    if (/no package\.json|not a plugin package|not valid JSON/.test(text)) return '拖入的内容不是插件包：需要直接包含 package.json。';
+    if (/is not inside the staging directory/.test(text)) return '该路径不在暂存目录里，出于安全拒绝删除。';
+    if (/aborted|AbortError|Failed to fetch|NetworkError/.test(text)) return '请求没完成（超时或被中断）。重试一次，或用「已暂存的插件包」里的安装。';
+    return null;
+  }
+
+  // ── progress ──────────────────────────────────────────────────────────────
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  let progress = null;
+
+  function setProgress(next) {
+    progress = next === null ? null : { ...next, startedAt: next.startedAt ?? Date.now() };
+    const panel = $('bar-panel');
+    if (progress === null) { panel.classList.add('hidden'); return; }
+    panel.classList.remove('hidden');
+    $('bar-label').textContent = progress.label;
+    const determinate = typeof progress.ratio === 'number';
+    const percent = determinate ? Math.round(Math.min(1, Math.max(0, progress.ratio)) * 100) : null;
+    const seconds = Math.max(0, Math.round(((progress.endedAt ?? Date.now()) - progress.startedAt) / 1000));
+    $('bar-detail').textContent = [percent === null ? null : percent + '%', progress.detail ?? null, '已用时 ' + seconds + ' 秒'].filter(Boolean).join(' · ');
+    const fill = $('bar-fill');
+    fill.className = (progress.phase === 'failed' ? 'err' : progress.phase === 'done' ? 'ok' : '') + (determinate ? '' : ' indeterminate');
+    fill.style.width = determinate ? percent + '%' : '';
+  }
+
+  // ── rendering ─────────────────────────────────────────────────────────────
+  function banner(kind, title, body) {
+    const box = el('div', 'banner ' + kind);
+    box.append(el('div', 'title', title));
+    if (body) box.append(el('div', 'muted', body));
+    return box;
+  }
+
+  function showStatus(node) {
+    const status = $('status');
+    status.replaceChildren(node);
+    status.classList.remove('hidden');
+  }
+
+  function clearStatus() { $('status').classList.add('hidden'); $('status').replaceChildren(); }
+
+  function setBusy(value) {
+    busy = value;
+    $('spec-install').disabled = value;
+    $('drop').style.pointerEvents = value ? 'none' : '';
+    $('drop').style.opacity = value ? '.6' : '';
+  }
+
+  function startLog(title) {
+    $('progress-title').textContent = title;
+    $('log').textContent = '';
+    $('progress').classList.remove('hidden');
+  }
+
+  function appendLog(text) {
+    const log = $('log');
+    log.textContent += text;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function renderEnv() {
+    const list = $('env');
+    list.replaceChildren();
+    if (state === null || !state.available) return;
+    const rows = [
+      ['profile', state.profile],
+      ['profile 目录', state.profileDirectory],
+      ['DSH home', state.home],
+      ['暂存目录', state.stagingRoot],
+      ['诊断日志', state.logPath || '—'],
+      ['安装器页面', location.origin + API + '/'],
+    ];
+    for (const [key, value] of rows) {
+      list.append(el('dt', null, key), el('dd', 'mono', String(value)));
+    }
+  }
+
+  function renderStaged() {
+    const host = $('staged');
+    host.replaceChildren();
+    if (state === null || !state.available) { host.textContent = '不可用'; return; }
+    const items = state.staged || [];
+    if (items.length === 0) { host.textContent = '暂存目录里还没有插件包。'; return; }
+    const table = el('table');
+    const head = el('tr');
+    for (const label of ['名称', '暂存路径', '']) head.append(el('th', null, label));
+    table.append(head);
+    for (const item of items) {
+      const row = el('tr');
+      const name = el('td', 'mono', item.name + (item.version ? ' @ ' + item.version : ''));
+      if (!item.hasBundlePatch) name.append(el('span', 'tag warn', 'no dsh.bundle'));
+      row.append(name);
+      row.append(el('td', 'mono muted', item.installPath));
+      const actions = el('td');
+      const install = el('button', 'primary', '安装');
+      install.onclick = () => void installFromStaged(item);
+      const drop = el('button', 'link', '删除');
+      drop.onclick = () => void deleteStaged(item);
+      actions.append(install, ' ', drop);
+      row.append(actions);
+      table.append(row);
+    }
+    host.append(table);
+  }
+
+  function renderInstalled() {
+    const host = $('installed');
+    host.replaceChildren();
+    if (state === null || !state.available) { host.textContent = '不可用'; return; }
+    if (state.dependencies.length === 0) { host.textContent = '这个 profile 还没有安装任何插件。'; return; }
+    const table = el('table');
+    const head = el('tr');
+    for (const label of ['名称', '来源', '类型', '']) head.append(el('th', null, label));
+    table.append(head);
+    for (const dependency of state.dependencies) {
+      const row = el('tr');
+      row.append(el('td', 'mono', dependency.name));
+      row.append(el('td', 'mono muted', dependency.spec));
+      row.append(el('td', null, dependency.isBundle ? '插件层' : '普通依赖'));
+      const actions = el('td');
+      // Shipped bundles are what DSH itself runs on; removing one breaks the install.
+      if (!dependency.name.startsWith('@deepseek-ai/')) {
+        const remove = el('button', 'link', '卸载');
+        remove.onclick = () => removePackage(dependency.name);
+        actions.append(remove);
+      }
+      row.append(actions);
+      table.append(row);
+    }
+    host.append(table);
+  }
+
+  async function refreshState() {
+    state = await api('/state');
+    if (!state.available) {
+      $('blocked-text').textContent = state.problem || '未知原因';
+      $('blocked').classList.remove('hidden');
+      $('drop').style.display = 'none';
+      $('manual').style.display = 'none';
+    } else {
+      $('profile-name').textContent = state.profile;
+    }
+    renderEnv();
+    renderInstalled();
+    renderStaged();
+  }
+
+  // ── installing ────────────────────────────────────────────────────────────
+  async function followJob(jobId, title, onDone) {
+    startLog(title);
+    if (pollTimer) clearInterval(pollTimer);
+    const tick = async () => {
+      let job;
+      try {
+        job = await api('/job?id=' + encodeURIComponent(jobId));
+      } catch (cause) {
+        appendLog('\n无法读取任务状态：' + cause.message + '\n');
+        return;
+      }
+      $('log').textContent = job.output || '';
+      const log = $('log');
+      log.scrollTop = log.scrollHeight;
+      if (job.state !== 'running') {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        await onDone(job);
+      }
+    };
+    pollTimer = setInterval(tick, 600);
+    await tick();
+  }
+
+  async function installFromDrop(dataTransfer) {
+    if (busy) return;
+    setBusy(true);
+    clearStatus();
+    try {
+      const files = await collect(dataTransfer);
+      showStatus(banner('', '读取中…', '正在读取拖入的 ' + files.length + ' 个条目'));
+      setProgress({ phase: 'reading', label: '读取拖入的文件', ratio: 0 });
+      const payload = await encode(files, (read, total) => setProgress({ phase: 'reading', label: '读取拖入的文件', ratio: total === 0 ? 0 : read / total, detail: formatBytes(read) + ' / ' + formatBytes(total) }));
+      setProgress({ phase: 'staging', label: '上传并暂存到磁盘', ratio: null });
+      const staged = await post('/stage', { files: payload });
+      const info = staged.inspection;
+      const lines = [];
+      lines.push('插件：' + info.name + (info.version ? ' @ ' + info.version : ''));
+      lines.push('文件：' + staged.fileCount + ' 个' + (staged.skipped ? '（已跳过 ' + staged.skipped + ' 个打包噪声文件）' : ''));
+      lines.push('暂存到：' + staged.installPath);
+      const box = banner('ok', '已识别插件包', lines.join('\n'));
+      const warnings = (info.warnings || []).slice();
+      if (warnings.length > 0) box.append(banner('warn', '注意', warnings.join('；')));
+      showStatus(box);
+      await installStaged(staged.token, staged.installPath);
+    } catch (cause) {
+      setProgress({ phase: 'failed', label: '已停止', ratio: null, endedAt: Date.now() });
+      const explanation = explainError(cause.message);
+      const box = banner('err', '安装未开始', explanation || cause.message);
+      if (explanation) box.append(el('div', 'muted mono', String(cause.message)));
+      showStatus(box);
+      setBusy(false);
+    }
+  }
+
+  async function installStaged(token, installPath) {
+    setProgress({ phase: 'installing', label: '执行官方安装操作', ratio: null });
+    let started;
+    try {
+      started = await post('/install', token === null ? { spec: installPath } : { token });
+    } catch (cause) {
+      // The token lives in host memory only; the staged directory is still a
+      // valid absolute-path install, which is the normal case after a restart.
+      if (token === null || !/no longer available|staged drop/u.test(String(cause.message))) throw cause;
+      const box = banner('warn', '暂存凭据已失效', '已改用暂存路径重试（重启后的正常情况）。');
+      showStatus(box);
+      started = await post('/install', { spec: installPath });
+    }
+    await followJob(started.jobId, '安装 ' + (installPath.split(/[\\\\/]/).pop() || ''), async job => {
+      if (job.state === 'done') {
+        setProgress({ phase: 'done', label: '完成', ratio: 1, endedAt: Date.now() });
+        showStatus(banner('ok', '安装完成', '已写入 profile ' + (state ? state.profile : '') + ' 的依赖与插件层。启用了 HMR 的 profile 会自动重组；否则重启 DSH 后生效。'));
+      } else {
+        setProgress({ phase: 'failed', label: '已停止', ratio: null, endedAt: Date.now() });
+        const box = banner('err', '安装失败（退出码 ' + job.exitCode + '）', '下面的输出里有 pnpm 或 Loader 的原始诊断。');
+        showStatus(box);
+      }
+      await refreshState().catch(() => {});
+      setBusy(false);
+    });
+  }
+
+  /** Install a package that is already staged, addressed by its path. */
+  async function installFromStaged(item) {
+    if (busy) return;
+    setBusy(true);
+    clearStatus();
+    try {
+      await installStaged(null, item.installPath);
+    } catch (cause) {
+      setProgress({ phase: 'failed', label: '已停止', ratio: null, endedAt: Date.now() });
+      const explanation = explainError(cause.message);
+      const box = banner('err', '安装未开始', explanation || cause.message);
+      if (explanation) box.append(el('div', 'muted mono', String(cause.message)));
+      showStatus(box);
+      setBusy(false);
+    }
+  }
+
+  async function deleteStaged(item) {
+    if (busy || !confirm('删除暂存的 ' + item.name + '？已安装的插件会因此失效。')) return;
+    setBusy(true);
+    try {
+      await post('/staged/delete', { path: item.directory });
+      await refreshState();
+    } catch (cause) {
+      showStatus(banner('err', '删除失败', cause.message));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function installSpec() {
+    if (busy) return;
+    const value = $('spec-input').value.trim();
+    if (value === '') { showStatus(banner('warn', '请先填写路径或包名', '')); return; }
+    setBusy(true);
+    clearStatus();
+    try {
+      const started = await post('/install', { spec: value });
+      await followJob(started.jobId, '安装 ' + value, async job => {
+        if (job.state === 'done') showStatus(banner('ok', '安装完成', '已写入 profile ' + (state ? state.profile : '') + '。重启 DSH 后生效。'));
+        else showStatus(banner('err', '安装失败（退出码 ' + job.exitCode + '）', '请查看任务输出。'));
+        await refreshState().catch(() => {});
+        setBusy(false);
+      });
+    } catch (cause) {
+      showStatus(banner('err', '安装未开始', cause.message));
+      setBusy(false);
+    }
+  }
+
+  async function removePackage(name) {
+    if (busy) return;
+    if (!confirm('从当前 profile 卸载 ' + name + '？')) return;
+    setBusy(true);
+    clearStatus();
+    try {
+      const started = await post('/remove', { name });
+      await followJob(started.jobId, '卸载 ' + name, async job => {
+        if (job.state === 'done') showStatus(banner('ok', '已卸载 ' + name, '依赖与插件层都已移除。重启 DSH 后完全生效。'));
+        else showStatus(banner('err', '卸载失败（退出码 ' + job.exitCode + '）', '请查看任务输出。'));
+        await refreshState().catch(() => {});
+        setBusy(false);
+      });
+    } catch (cause) {
+      showStatus(banner('err', '卸载未开始', cause.message));
+      setBusy(false);
+    }
+  }
+
+  // ── wiring ────────────────────────────────────────────────────────────────
+  const drop = $('drop');
+  let depth = 0;
+  drop.addEventListener('dragenter', event => { event.preventDefault(); depth += 1; drop.classList.add('hot'); });
+  drop.addEventListener('dragover', event => { event.preventDefault(); });
+  drop.addEventListener('dragleave', () => { depth = Math.max(0, depth - 1); if (depth === 0) drop.classList.remove('hot'); });
+  drop.addEventListener('drop', event => {
+    event.preventDefault();
+    depth = 0;
+    drop.classList.remove('hot');
+    installFromDrop(event.dataTransfer);
+  });
+  // A drop anywhere on the page is the same intent.
+  window.addEventListener('dragover', event => event.preventDefault());
+  window.addEventListener('drop', event => {
+    event.preventDefault();
+    if (event.target.closest && event.target.closest('#drop')) return;
+    installFromDrop(event.dataTransfer);
+  });
+
+  $('picker').addEventListener('change', event => {
+    const files = Array.from(event.target.files || []).map(file => ({ path: file.webkitRelativePath || file.name, file }));
+    installFromDrop({ items: [], files, __collected: files.length ? files : null });
+  });
+  $('picker-files').addEventListener('change', event => {
+    const files = Array.from(event.target.files || []).map(file => ({ path: file.name, file }));
+    installFromDrop({ items: [], files });
+  });
+  drop.addEventListener('click', event => {
+    if (event.target.closest('button')) return;
+    const folder = confirm('选择文件夹请点“确定”，选择 .zip / .tgz 压缩包请点“取消”。');
+    (folder ? $('picker') : $('picker-files')).click();
+  });
+  $('spec-install').addEventListener('click', installSpec);
+  $('spec-input').addEventListener('keydown', event => { if (event.key === 'Enter') installSpec(); });
+
+  refreshState().catch(cause => {
+    $('blocked-text').textContent = cause.message;
+    $('blocked').classList.remove('hidden');
+  });
+})();
+</script>
+</body>
+</html>
